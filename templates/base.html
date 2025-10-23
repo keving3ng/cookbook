@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Recipe Manager{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="/">🍳 Recipe Manager</a></h1>
+            <nav>
+                <a href="/">Home</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Recipe Manager - Self-hosted recipe collection</p>
+        </div>
+    </footer>
+</body>
+</html>

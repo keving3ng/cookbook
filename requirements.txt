@@ -1,0 +1,19 @@
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+alembic==1.12.1
+
+# Recipe Scraping
+recipe-scrapers==14.51.0
+
+# Templating
+jinja2==3.1.2
+
+# Utilities
+python-dotenv==1.0.0
+aiofiles==23.2.1
+pydantic==2.5.0
