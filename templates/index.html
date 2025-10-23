@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Recipe Manager - Home{% endblock %}
+
+{% block content %}
+<div x-data="recipeManager()">
+    <!-- Add Recipe Form -->
+    <div class="add-recipe-section">
+        <h2>Add New Recipe</h2>
+        <form @submit.prevent="addRecipe" class="add-recipe-form">
+            <div class="form-group">
+                <input
+                    type="url"
+                    x-model="newRecipeUrl"
+                    placeholder="Enter recipe URL (e.g., https://www.allrecipes.com/...)"
+                    required
+                    :disabled="loading"
+                >
+                <button type="submit" :disabled="loading">
+                    <span x-show="!loading">Add Recipe</span>
+                    <span x-show="loading">Adding...</span>
+                </button>
+            </div>
+            <p x-show="error" class="error" x-text="error"></p>
+            <p x-show="success" class="success" x-text="success"></p>
+        </form>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-section">
+        <input
+            type="text"
+            x-model="searchQuery"
+            @input.debounce.500ms="loadRecipes"
+            placeholder="Search recipes by title or ingredient..."
+            class="search-input"
+        >
+    </div>
+
+    <!-- Recipe Grid -->
+    <div class="recipes-section">
+        <div class="recipes-header">
+            <h2>My Recipes</h2>
+            <p class="recipe-count" x-text="`${recipes.length} recipe${recipes.length !== 1 ? 's' : ''}`"></p>
+        </div>
+
+        <div x-show="loadingRecipes" class="loading">Loading recipes...</div>
+
+        <div x-show="!loadingRecipes && recipes.length === 0" class="no-recipes">
+            <p>No recipes found. Add your first recipe above!</p>
+        </div>
+
+        <div class="recipe-grid" x-show="!loadingRecipes && recipes.length > 0">
+            <template x-for="recipe in recipes" :key="recipe.id">
+                <div class="recipe-card">
+                    <div class="recipe-image" x-show="recipe.images && recipe.images.length > 0">
+                        <img :src="recipe.images[0]" :alt="recipe.title" loading="lazy">
+                    </div>
+                    <div class="recipe-content">
+                        <h3 class="recipe-title">
+                            <a :href="`/recipes/${recipe.id}`" x-text="recipe.title"></a>
+                        </h3>
+                        <p class="recipe-description" x-text="recipe.description || 'No description available'"></p>
+                        <div class="recipe-meta">
+                            <span x-show="recipe.prep_time">
+                                ⏱️ Prep: <span x-text="recipe.prep_time"></span>min
+                            </span>
+                            <span x-show="recipe.cook_time">
+                                🔥 Cook: <span x-text="recipe.cook_time"></span>min
+                            </span>
+                            <span x-show="recipe.servings">
+                                🍽️ Serves: <span x-text="recipe.servings"></span>
+                            </span>
+                        </div>
+                        <div class="recipe-tags" x-show="recipe.tags && recipe.tags.length > 0">
+                            <template x-for="tag in recipe.tags" :key="tag">
+                                <span class="tag" x-text="tag"></span>
+                            </template>
+                        </div>
+                        <div class="recipe-actions">
+                            <a :href="`/recipes/${recipe.id}`" class="btn btn-primary">View Recipe</a>
+                            <button @click="deleteRecipe(recipe.id)" class="btn btn-danger">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+function recipeManager() {
+    return {
+        recipes: [],
+        newRecipeUrl: '',
+        searchQuery: '',
+        loading: false,
+        loadingRecipes: false,
+        error: '',
+        success: '',
+
+        init() {
+            this.loadRecipes();
+        },
+
+        async loadRecipes() {
+            this.loadingRecipes = true;
+            try {
+                const url = new URL('/api/recipes', window.location.origin);
+                if (this.searchQuery) {
+                    url.searchParams.append('search', this.searchQuery);
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+                this.recipes = data.recipes;
+            } catch (err) {
+                console.error('Failed to load recipes:', err);
+            } finally {
+                this.loadingRecipes = false;
+            }
+        },
+
+        async addRecipe() {
+            this.loading = true;
+            this.error = '';
+            this.success = '';
+
+            try {
+                const response = await fetch('/api/recipes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: this.newRecipeUrl }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to add recipe');
+                }
+
+                const recipe = await response.json();
+                this.success = `Recipe "${recipe.title}" added successfully!`;
+                this.newRecipeUrl = '';
+                await this.loadRecipes();
+
+                // Clear success message after 3 seconds
+                setTimeout(() => {
+                    this.success = '';
+                }, 3000);
+            } catch (err) {
+                this.error = err.message;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async deleteRecipe(id) {
+            if (!confirm('Are you sure you want to delete this recipe?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/recipes/${id}`, {
+                    method: 'DELETE',
+                });
+
+                if (response.ok) {
+                    await this.loadRecipes();
+                }
+            } catch (err) {
+                console.error('Failed to delete recipe:', err);
+                alert('Failed to delete recipe');
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

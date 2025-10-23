@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Recipe Details{% endblock %}
+
+{% block content %}
+<div x-data="recipeDetail({{ recipe_id }})">
+    <div x-show="loading" class="loading">Loading recipe...</div>
+
+    <div x-show="error" class="error">
+        <p x-text="error"></p>
+        <a href="/" class="btn">Back to Home</a>
+    </div>
+
+    <div x-show="!loading && !error && recipe" class="recipe-detail">
+        <!-- Header -->
+        <div class="recipe-header">
+            <h1 x-text="recipe.title"></h1>
+            <div class="recipe-actions">
+                <a :href="recipe.url" target="_blank" class="btn">View Original</a>
+                <button @click="window.print()" class="btn">Print</button>
+                <a href="/" class="btn">Back to List</a>
+            </div>
+        </div>
+
+        <!-- Main Image -->
+        <div class="recipe-image-large" x-show="recipe.images && recipe.images.length > 0">
+            <img :src="recipe.images[0]" :alt="recipe.title">
+        </div>
+
+        <!-- Description -->
+        <p class="recipe-description-detail" x-text="recipe.description" x-show="recipe.description"></p>
+
+        <!-- Meta Information -->
+        <div class="recipe-meta-detail">
+            <div class="meta-item" x-show="recipe.prep_time">
+                <strong>Prep Time:</strong> <span x-text="recipe.prep_time"></span> minutes
+            </div>
+            <div class="meta-item" x-show="recipe.cook_time">
+                <strong>Cook Time:</strong> <span x-text="recipe.cook_time"></span> minutes
+            </div>
+            <div class="meta-item" x-show="recipe.servings">
+                <strong>Servings:</strong>
+                <button @click="servings > 1 && servings--" class="servings-btn">-</button>
+                <span x-text="servings"></span>
+                <button @click="servings++" class="servings-btn">+</button>
+            </div>
+        </div>
+
+        <!-- Tags -->
+        <div class="recipe-tags-detail" x-show="recipe.tags && recipe.tags.length > 0">
+            <template x-for="tag in recipe.tags" :key="tag">
+                <span class="tag" x-text="tag"></span>
+            </template>
+        </div>
+
+        <!-- Ingredients -->
+        <div class="recipe-section">
+            <h2>Ingredients</h2>
+            <ul class="ingredients-list">
+                <template x-for="(ingredient, index) in scaledIngredients" :key="index">
+                    <li x-text="ingredient"></li>
+                </template>
+            </ul>
+        </div>
+
+        <!-- Instructions -->
+        <div class="recipe-section">
+            <h2>Instructions</h2>
+            <ol class="instructions-list">
+                <template x-for="(instruction, index) in recipe.instructions" :key="index">
+                    <li x-text="instruction"></li>
+                </template>
+            </ol>
+        </div>
+    </div>
+</div>
+
+<script>
+function recipeDetail(recipeId) {
+    return {
+        recipe: null,
+        servings: 1,
+        loading: true,
+        error: '',
+
+        init() {
+            this.loadRecipe();
+        },
+
+        async loadRecipe() {
+            this.loading = true;
+            try {
+                const response = await fetch(`/api/recipes/${recipeId}`);
+
+                if (!response.ok) {
+                    throw new Error('Recipe not found');
+                }
+
+                this.recipe = await response.json();
+                this.servings = this.recipe.servings || 1;
+            } catch (err) {
+                this.error = err.message;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        get scaledIngredients() {
+            if (!this.recipe || !this.recipe.ingredients) {
+                return [];
+            }
+
+            const originalServings = this.recipe.servings || 1;
+            const scale = this.servings / originalServings;
+
+            if (scale === 1) {
+                return this.recipe.ingredients;
+            }
+
+            // Scale ingredient quantities
+            return this.recipe.ingredients.map(ingredient => {
+                return this.scaleIngredient(ingredient, scale);
+            });
+        },
+
+        scaleIngredient(ingredient, scale) {
+            // Match common fraction patterns and numbers
+            const fractionMap = {
+                '¼': 0.25, '½': 0.5, '¾': 0.75,
+                '⅓': 0.33, '⅔': 0.67,
+                '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875
+            };
+
+            // Replace fractions with decimal equivalents
+            let normalized = ingredient;
+            for (const [fraction, decimal] of Object.entries(fractionMap)) {
+                normalized = normalized.replace(new RegExp(fraction, 'g'), decimal.toString());
+            }
+
+            // Try to find and scale numbers
+            const numberPattern = /(\d+\.?\d*)/;
+            const match = normalized.match(numberPattern);
+
+            if (match) {
+                const originalNumber = parseFloat(match[1]);
+                const scaledNumber = originalNumber * scale;
+
+                // Format the scaled number nicely
+                let formatted;
+                if (scaledNumber % 1 === 0) {
+                    formatted = scaledNumber.toString();
+                } else {
+                    formatted = scaledNumber.toFixed(2).replace(/\.?0+$/, '');
+                }
+
+                return ingredient.replace(numberPattern, formatted);
+            }
+
+            return ingredient;
+        }
+    };
+}
+</script>
+{% endblock %}
